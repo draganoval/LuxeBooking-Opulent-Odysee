@@ -1,0 +1,64 @@
+## Goal
+Build a multi-page luxury hotel booking web app that is simple, correct, and cleanly structured for an exam project + portfolio case study.
+
+## Tech Stack (strict)
+- HTML, CSS, Vanilla JavaScript, Bootstrap 5 (CDN is OK)
+- Vite (multi-page build, each page is its own HTML file)
+- Supabase (DB + Auth + Storage). No other backend.
+- NO TypeScript. NO React/Vue. NO heavy libraries.
+
+## Pages (each in src/pages/)
+- index.html (home)
+- hotels.html (hotel cards)
+- destinations.html (destination cards)
+- adventures.html (blog-like cards)
+- booking.html (create booking + file upload)
+- users.html (my bookings / profile)
+- admin.html (admin-only management)
+- login.html / register.html
+
+## Architecture Rules
+- Keep code modular and small:
+  - src/js/services/* = all Supabase queries (no DOM code here)
+  - src/js/auth/* = auth logic + route guards
+  - src/js/ui/* = reusable UI rendering helpers (navbar, toasts, card rendering)
+  - Page scripts only: DOM + event listeners + call services
+- Avoid monolithic files. Prefer multiple small modules.
+- Use async/await and basic try/catch error handling.
+
+## Supabase Data Model (minimum)
+Tables:
+- profiles (id uuid PK -> auth.users)
+- hotels (id, name, destination_id, description, cover_image_path)
+- destinations (id, name, country, description, cover_image_path)
+- bookings (id, user_id, hotel_id, start_date, end_date, guests, note, status, attachment_path)
+- adventures (id, author_id, hotel_id nullable, title, content, cover_image_path, created_at)
+- user_roles (user_id unique, role = 'admin' or 'user')
+
+Storage:
+- bucket: uploads (hotel images and/or booking attachments)
+
+## Security (must)
+- Use Supabase Auth (register/login/logout).
+- Assume Row Level Security (RLS) is enabled and enforce permissions server-side.
+- Policies:
+  - hotels/destinations/adventures: public read; admin-only write
+  - bookings: user can CRUD only own; admin can access all; status changes only by admin
+  - roles: only admin can manage roles
+- Never rely only on client-side checks for permissions.
+
+## UI Requirements
+- Responsive layout (mobile + desktop) with Bootstrap grid.
+- Use simple luxury styling (spacing, typography, card layouts).
+- Keep UI consistent via shared navbar component injected on each page.
+
+## Development Workflow (important)
+- Implement in small steps: prompt -> code -> run -> test -> refine
+- Make frequent commits with clear messages (feat/fix/chore/docs).
+- Keep database changes as SQL migrations in supabase/migrations and commit them.
+
+## Output Expectations
+When generating code:
+- Provide file-by-file changes.
+- Prefer simple, readable solutions.
+- Do not introduce features beyond the requested scope.
