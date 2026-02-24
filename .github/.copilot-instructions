@@ -48,9 +48,13 @@ Storage:
 - Never rely only on client-side checks for permissions.
 
 ## UI Requirements
-- Responsive layout (mobile + desktop) with Bootstrap grid.
+- Create responsive and user-friendly layout (mobile + desktop) with Bootstrap gridcomponents.
 - Use simple luxury styling (spacing, typography, card layouts).
 - Keep UI consistent via shared navbar component injected on each page.
+- Use HTML, CSS, Bootstrap and Vanilla JS for front-end.
+- Implement modern, responsive UI design, with semantic HTML.
+- Use a consistent color scheme and typography throughout the app.
+- use appropriate icons, effects and visual cues to enhance usability.
 
 ## Development Workflow (important)
 - Implement in small steps: prompt -> code -> run -> test -> refine
