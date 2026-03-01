@@ -2,6 +2,16 @@ import { initHeader } from '../ui/header.js';
 import { initFooter } from '../ui/footer.js';
 import { ensureProfile, loginUser } from '../auth/authService.js';
 
+const ALLOWED_NEXT_PAGES = new Set([
+  'index.html',
+  'hotels.html',
+  'destinations.html',
+  'adventures.html',
+  'bookings.html',
+  'user.html',
+  'admin.html'
+]);
+
 function showAlert(container, type, message) {
   if (!container) {
     return;
@@ -70,6 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (data?.session) {
+      const params = new URLSearchParams(window.location.search);
+      const nextRaw = params.get('next');
+      const next = nextRaw ? decodeURIComponent(nextRaw).trim().replace(/^(\.\/|\/)+/, '') : '';
+
+      if (ALLOWED_NEXT_PAGES.has(next)) {
+        window.location.href = `./${next}`;
+        return;
+      }
+
       window.location.href = './user.html';
       return;
     }
