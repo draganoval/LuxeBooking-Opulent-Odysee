@@ -25,6 +25,15 @@ function renderHotels(mainElement, hotels) {
               <p class="text-secondary mb-2">${escapeHtml(hotel.destination)}</p>
               <p class="card-text mb-0">${escapeHtml(hotel.description || 'No description available.')}</p>
             </div>
+            <div class="card-footer bg-white border-0 pt-0">
+              <a
+                class="btn btn-dark w-100"
+                href="./bookings.html?hotelId=${encodeURIComponent(hotel.id)}"
+                aria-label="Request booking for ${escapeHtml(hotel.name)}"
+              >
+                Request Booking
+              </a>
+            </div>
           </div>
         </div>
       `
