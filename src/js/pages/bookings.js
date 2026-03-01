@@ -3,6 +3,16 @@ import { initFooter } from '../ui/footer.js';
 import { requireAuth } from '../auth/guards.js';
 import { supabase } from '../supabaseClient.js';
 import { uploadBookingAttachment } from '../services/storageService.js';
+import { getHotels } from '../services/hotelsService.js';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 
 function showAlert(container, type, message) {
   if (!container) {
@@ -25,6 +35,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   initHeader('bookings');
   initFooter();
 
+  const hotelIdFromQuery = new URLSearchParams(window.location.search).get('hotelId')?.trim() ?? '';
+
+  const mainElement = document.querySelector('main.container');
+  const titleElement = mainElement?.querySelector('h1');
+
+  if (titleElement) {
+    let noteElement = document.getElementById('booking-page-note');
+    if (!noteElement) {
+      noteElement = document.createElement('p');
+      noteElement.id = 'booking-page-note';
+      noteElement.className = 'text-secondary mb-4';
+      titleElement.insertAdjacentElement('afterend', noteElement);
+    }
+
+    noteElement.textContent = hotelIdFromQuery
+      ? 'Booking for selected hotel'
+      : 'Select a hotel to continue';
+  }
+
   const form =
     document.getElementById('booking-form') ||
     document.getElementById('bookings-form') ||
@@ -38,6 +67,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!form) {
     showAlert(alertContainer, 'danger', 'Booking form is missing.');
     return;
+  }
+
+  const hotelSelect =
+    form.querySelector('select[name="hotel_id"]') ||
+    form.querySelector('#hotel_id');
+
+  if (hotelSelect) {
+    const { data: hotels, error: hotelsError } = await getHotels();
+
+    if (hotelsError) {
+      showAlert(alertContainer, 'danger', hotelsError.message || 'Unable to load hotels.');
+      return;
+    }
+
+    const optionsMarkup = (hotels || [])
+      .map((hotel) => `<option value="${escapeHtml(hotel.id)}">${escapeHtml(hotel.name)}</option>`)
+      .join('');
+
+    hotelSelect.innerHTML = `
+      <option value="">Select a hotel</option>
+      ${optionsMarkup}
+    `;
+
+    if (hotelIdFromQuery) {
+      const hasMatchingHotel = Array.from(hotelSelect.options).some((option) => option.value === hotelIdFromQuery);
+      if (hasMatchingHotel) {
+        hotelSelect.value = hotelIdFromQuery;
+      }
+    }
   }
 
   form.addEventListener('submit', async (event) => {
