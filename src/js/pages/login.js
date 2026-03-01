@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    alertContainer.innerHTML = '';
+    if (alertContainer) {
+      alertContainer.innerHTML = '';
+    }
 
     const formData = new FormData(form);
     const email = String(formData.get('email') ?? '').trim();
@@ -39,13 +41,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    submitButton.disabled = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
 
     const { data, error } = await loginUser(email, password);
 
     if (error) {
       showAlert(alertContainer, 'danger', error.message || 'Login failed.');
-      submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
       return;
     }
 
@@ -57,7 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'danger',
         profileResult.error.message || 'Profile sync failed after login.'
       );
-      submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
       return;
     }
 
@@ -67,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     showAlert(alertContainer, 'danger', 'Login did not create an active session.');
-    submitButton.disabled = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
   });
 });
