@@ -1,7 +1,8 @@
 import { supabase } from '../supabaseClient.js';
 
 function getCurrentPage() {
-  const page = window.location.pathname.split('/').pop();
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const page = path.split('/').pop();
   return page || 'index.html';
 }
 
@@ -30,7 +31,8 @@ export async function requireAdmin() {
     const session = data?.session;
 
     if (error || !session?.user?.id) {
-      window.location.href = './index.html';
+      const next = encodeURIComponent(getCurrentPage());
+      window.location.href = `./login.html?next=${next}`;
       return false;
     }
 
@@ -48,7 +50,8 @@ export async function requireAdmin() {
 
     return true;
   } catch {
-    window.location.href = './index.html';
+    const next = encodeURIComponent(getCurrentPage());
+    window.location.href = `./login.html?next=${next}`;
     return false;
   }
 }
