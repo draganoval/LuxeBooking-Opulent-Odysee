@@ -6,13 +6,8 @@ const baseLinks = [
   { key: 'destinations', label: 'Destinations', href: './destinations.html' },
   { key: 'adventures', label: 'Adventures', href: './adventures.html' },
   { key: 'bookings', label: 'Bookings', href: './bookings.html' },
-  { key: 'user', label: 'User', href: './user.html' },
+  { key: 'user', label: 'My Account', href: './user.html' },
   { key: 'admin', label: 'Admin', href: './admin.html' }
-];
-
-const guestLinks = [
-  { key: 'login', label: 'Login', href: './login.html' },
-  { key: 'register', label: 'Register', href: './register.html' }
 ];
 
 function escapeHtml(value) {
@@ -25,34 +20,41 @@ function escapeHtml(value) {
 }
 
 function renderHeader(headerContainer, activePage, user) {
-  const links = user ? baseLinks : [...baseLinks, ...guestLinks];
+  const links = baseLinks;
 
   const linksMarkup = links
     .map((link) => {
       const activeClass = link.key === activePage ? 'active' : '';
-      return `<li class="nav-item"><a class="nav-link ${activeClass}" href="${link.href}">${link.label}</a></li>`;
+      return `<li class="nav-item"><a class="nav-link lux-nav-link ${activeClass}" href="${link.href}">${link.label}</a></li>`;
     })
     .join('');
 
   const authMarkup = user
     ? `
-      <li class="nav-item d-flex align-items-center me-2 text-light">Hello, ${escapeHtml(user.email ?? 'User')}</li>
-      <li class="nav-item"><button id="header-logout-btn" type="button" class="btn btn-outline-light btn-sm">Logout</button></li>
+      <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center gap-2 ms-lg-3 mt-3 mt-lg-0">
+        <span class="small text-secondary">Hello, ${escapeHtml(user.email ?? 'User')}</span>
+        <button id="header-logout-btn" type="button" class="btn btn-outline-dark btn-sm">Logout</button>
+      </div>
     `
-    : '';
+    : `
+      <div class="d-flex gap-2 ms-lg-3 mt-3 mt-lg-0">
+        <a class="btn btn-outline-dark btn-sm" href="./login.html">Login</a>
+        <a class="btn btn-dark btn-sm" href="./register.html">Register</a>
+      </div>
+    `;
 
   headerContainer.innerHTML = `
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg sticky-top lux-navbar">
       <div class="container">
-        <a class="navbar-brand" href="./index.html">LuxeBooking</a>
+        <a class="navbar-brand lux-brand" href="./index.html">Opulent Odyssey</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNavbar">
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             ${linksMarkup}
-            ${authMarkup}
           </ul>
+          ${authMarkup}
         </div>
       </div>
     </nav>
