@@ -1,7 +1,7 @@
 import { initHeader } from '../ui/header.js';
 import { initFooter } from '../ui/footer.js';
 import { requireAdmin } from '../auth/guards.js';
-import { getAllBookingsForAdmin, updateBookingStatusById } from '../services/bookingsService.js';
+import { supabase } from '../supabaseClient.js';
 import { createHotel, deleteHotelById, getHotels } from '../services/hotelsService.js';
 
 function escapeHtml(value) {
@@ -70,8 +70,7 @@ function renderBookings(bookingsContent, bookings) {
       const dateRange = `${booking.start_date ?? '—'} → ${booking.end_date ?? '—'}`;
       const status = String(booking.status ?? 'unknown');
       const badgeClass = getStatusBadgeClass(status);
-      const disableAction = status === 'approved' || status === 'rejected' || status === 'cancelled';
-      const actionClass = disableAction ? ' disabled' : '';
+      const disableAction = status !== 'pending';
       const actionAttr = disableAction ? 'disabled' : '';
 
       return `
@@ -83,8 +82,8 @@ function renderBookings(bookingsContent, bookings) {
           <td><span class="badge ${badgeClass}">${escapeHtml(status)}</span></td>
           <td>
             <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-success${actionClass}" data-action="approve-booking" data-booking-id="${booking.id}" ${actionAttr}>Approve</button>
-              <button type="button" class="btn btn-sm btn-outline-danger${actionClass}" data-action="reject-booking" data-booking-id="${booking.id}" ${actionAttr}>Reject</button>
+              <button type="button" class="btn btn-success btn-sm" data-action="approve-booking" data-booking-id="${booking.id}" ${actionAttr}>Approve</button>
+              <button type="button" class="btn btn-danger btn-sm" data-action="reject-booking" data-booking-id="${booking.id}" ${actionAttr}>Reject</button>
             </div>
           </td>
         </tr>
@@ -161,6 +160,46 @@ function setAlert(container, type, message) {
   }
 
   container.innerHTML = `<div class="alert alert-${type} py-2" role="alert">${escapeHtml(message)}</div>`;
+}
+
+async function getAllBookingsForAdmin() {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('id,start_date,end_date,guests,status,hotels(name),profiles(email)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+async function updateBookingStatusById(bookingId, status) {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status })
+      .eq('id', bookingId)
+      .select('id,status')
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    if (!data) {
+      return { data: null, error: new Error('Booking not found.') };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
