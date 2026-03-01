@@ -49,12 +49,16 @@ export async function registerUser(email, password) {
 
     const profileResult = await ensureProfile()
 
+    if (profileResult.error) {
+      return { data: null, error: profileResult.error }
+    }
+
     return {
       data: {
         ...data,
         profile: profileResult.data
       },
-      error: profileResult.error
+      error: null
     }
   } catch (error) {
     return { data: null, error }
@@ -74,12 +78,16 @@ export async function loginUser(email, password) {
 
     const profileResult = await ensureProfile()
 
+    if (profileResult.error) {
+      return { data: null, error: profileResult.error }
+    }
+
     return {
       data: {
         ...data,
         profile: profileResult.data
       },
-      error: profileResult.error
+      error: null
     }
   } catch (error) {
     return { data: null, error }
