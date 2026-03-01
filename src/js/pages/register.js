@@ -32,7 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    alertContainer.innerHTML = '';
+    if (alertContainer) {
+      alertContainer.innerHTML = '';
+    }
 
     const formData = new FormData(form);
     const email = String(formData.get('email') ?? '').trim();
@@ -49,13 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    submitButton.disabled = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
 
     const { error } = await registerUser(email, password);
 
     if (error) {
       showAlert(alertContainer, 'danger', error.message || 'Registration failed.');
-      submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
       return;
     }
 
@@ -67,7 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'danger',
         sessionResult.error.message || 'Unable to check session after registration.'
       );
-      submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
       return;
     }
 
@@ -82,7 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
           'danger',
           profileResult.error.message || 'Profile sync failed after registration.'
         );
-        submitButton.disabled = false;
+        if (submitButton) {
+          submitButton.disabled = false;
+        }
         return;
       }
 
@@ -95,6 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
       'info',
       'Check email to confirm'
     );
+
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
 
     setTimeout(() => {
       window.location.href = './login.html';
