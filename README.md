@@ -32,3 +32,9 @@ Luxe Booking – Opulent Odyssey is a multi-page luxury hotel booking platform d
 
 ## Project Architecture (Short)
 This project follows a **multi-page architecture** where each page has a dedicated HTML entry and corresponding JavaScript module. Shared UI elements (such as header and footer) are organized as reusable modules, while page-specific logic is kept in separate page scripts. The structure is intentionally modular to improve maintainability, readability, and scalability for future feature expansion.
+
+## Supabase Storage
+- Create a Storage bucket named `uploads` in Supabase.
+- For MVP, set the bucket to **public** so uploaded booking attachments can be downloaded directly.
+- Optional: for stronger security, use signed URLs instead of public access.
+- This project uses the bucket for booking attachment upload/download.
