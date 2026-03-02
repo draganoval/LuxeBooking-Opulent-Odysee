@@ -1,6 +1,7 @@
 import { initHeader } from '../ui/header.js';
 import { initFooter } from '../ui/footer.js';
 import { ensureProfile, loginUser } from '../auth/authService.js';
+import { supabase } from '../supabaseClient.js';
 
 const ALLOWED_NEXT_PAGES = new Set([
   'index.html',
@@ -86,6 +87,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (ALLOWED_NEXT_PAGES.has(next)) {
         window.location.href = `./${next}`;
+        return;
+      }
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.session.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (roleData?.role === 'admin') {
+        window.location.href = './admin.html';
         return;
       }
 
