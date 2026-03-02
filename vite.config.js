@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        index: resolve(__dirname, 'src/pages/index.html'),
+        index: resolve(__dirname, 'index.html'),
         hotels: resolve(__dirname, 'src/pages/hotels.html'),
         destinations: resolve(__dirname, 'src/pages/destinations.html'),
         adventures: resolve(__dirname, 'src/pages/adventures.html'),
