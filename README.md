@@ -20,6 +20,19 @@ The backend is powered by **Supabase**, including:
 - **Security:** Row Level Security (RLS) policies enforced at database level
 
 ## Architecture
+
+### Client–Server Model
+
+The application follows a client–server architecture:
+
+- The **frontend (Vite + Vanilla JS)** runs in the browser.
+- It communicates directly with Supabase via the REST API.
+- Supabase handles:
+  - Authentication (JWT-based sessions)
+  - Database queries
+  - File storage
+- Authorization is enforced using **Row-Level Security (RLS)** policies at the database level.
+
 ### Frontend
 - **Vite** (multi-page setup)
 - **Vanilla JavaScript** (modular structure with page-specific scripts)
@@ -40,6 +53,46 @@ Main tables used in the project:
 - **destinations**: Stores destination/location records displayed to users.
 - **adventures**: Stores adventure experiences associated with travel offerings.
 - **bookings**: Stores booking transactions, status, user ownership, and attachment references.
+
+### Entity Relationships
+
+```mermaider Diagram
+
+  profiles ||--o{ bookings : has
+  profiles ||--o{ user_roles : assigned
+  hotels ||--o{ bookings : reserved_for
+
+  profiles {
+    uuid id PK
+    text email
+  }
+
+  user_roles {
+    uuid user_id FK
+    text role
+  }
+
+  hotels {
+    bigint id PK
+    text name
+  }
+
+  bookings {
+    bigint id PK
+    uuid user_id FK
+    bigint hotel_id FK
+    text status
+  }
+
+  adventures {
+    bigint id PK
+    text title
+  }
+
+  destinations {
+    bigint id PK
+    text name
+  }
 
 ## Pages Implemented
 - Home (`index.html`)
@@ -103,3 +156,5 @@ Use placeholder values below and replace before final submission/demo:
 Database schema and policy changes are tracked in:
 
 - `supabase/migrations`
+
+
