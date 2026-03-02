@@ -56,7 +56,8 @@ Main tables used in the project:
 
 ### Entity Relationships
 
-```mermaider Diagram
+```mermaid
+erDiagram
 
   profiles ||--o{ bookings : has
   profiles ||--o{ user_roles : assigned
@@ -93,7 +94,7 @@ Main tables used in the project:
     bigint id PK
     text name
   }
-
+  
 ## Pages Implemented
 - Home (`index.html`)
 - Hotels
