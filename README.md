@@ -150,6 +150,8 @@ Use placeholder values below and replace before final submission/demo:
 ## Supabase Storage
 - Create a Storage bucket named `uploads` in Supabase.
 - For MVP, set the bucket to **public** so uploaded booking attachments can be downloaded directly.
+- Hotel images are uploaded under `uploads/hotels/`.
+- Destination images are uploaded under `uploads/destinations/`.
 - Optional: for stronger security, use signed URLs instead of public access.
 - This project uses the bucket for booking attachment upload/download.
 
@@ -157,5 +159,9 @@ Use placeholder values below and replace before final submission/demo:
 Database schema and policy changes are tracked in:
 
 - `supabase/migrations`
+
+Apply the latest migration to add image columns:
+
+- `004_add_image_urls.sql`
 
 

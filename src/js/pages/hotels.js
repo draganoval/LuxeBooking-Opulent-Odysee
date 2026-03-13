@@ -17,9 +17,11 @@ function renderHotels(mainElement, hotels) {
       (hotel) => `
         <div class="col-12 col-md-6 col-lg-4">
           <div class="card h-100">
-            <div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 160px;">
-              <span class="text-muted">Image Placeholder</span>
-            </div>
+            ${
+              hotel.image_url
+                ? `<img src="${escapeHtml(hotel.image_url)}" class="card-img-top" alt="${escapeHtml(hotel.name)}" style="height: 160px; object-fit: cover;" />`
+                : `<div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 160px;"><span class="text-muted">Image Placeholder</span></div>`
+            }
             <div class="card-body">
               <h5 class="card-title mb-2">${escapeHtml(hotel.name)}</h5>
               <p class="text-secondary mb-2">${escapeHtml(hotel.destination)}</p>
@@ -60,8 +62,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   mainElement.innerHTML = '<h1 class="mb-4">Hotels</h1><p class="text-secondary">Loading hotels...</p>';
 
   const { data, error } = await getHotels();
-  console.log('[hotels] data:', data);
-  console.log('[hotels] error:', error);
 
   if (error) {
     mainElement.innerHTML = `

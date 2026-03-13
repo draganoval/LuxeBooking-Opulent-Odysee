@@ -6,7 +6,9 @@ import {
   getAllBookingsForAdmin,
   updateBookingStatusById
 } from '../services/bookingsService.js';
-import { createHotel, deleteHotelById, getHotels } from '../services/hotelsService.js';
+import { createDestination, deleteDestinationById, getDestinations, updateDestinationById } from '../services/destinationsService.js';
+import { createHotel, deleteHotelById, getHotels, updateHotelById } from '../services/hotelsService.js';
+import { uploadDestinationImage, uploadHotelImage } from '../services/storageService.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -25,6 +27,38 @@ function getStatusBadgeClass(status) {
   return 'text-bg-light';
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return '—';
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(parsedDate);
+}
+
+function parseEntityId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) ? id : null;
+}
+
+function getImageMarkup(url, label) {
+  if (url) {
+    return `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}" class="img-thumbnail" style="width: 80px; height: 56px; object-fit: cover;" />`;
+  }
+
+  return '<div class="text-secondary small">No image</div>';
+}
+
 function renderLayout(mainElement) {
   mainElement.innerHTML = `
     <h1 class="mb-4">Admin Panel</h1>
@@ -35,10 +69,12 @@ function renderLayout(mainElement) {
       <div id="admin-bookings-content"><p class="text-secondary mb-0">Loading bookings...</p></div>
     </section>
 
-    <section>
+    <section class="mb-5">
       <h2 class="h4 mb-3">Hotels Management</h2>
       <div id="admin-hotels-alert"></div>
       <form id="admin-add-hotel-form" class="row g-3 mb-4">
+        <input type="hidden" name="hotel_id" />
+        <input type="hidden" name="current_image_url" />
         <div class="col-12 col-md-4">
           <label for="admin-hotel-name" class="form-label">Name</label>
           <input id="admin-hotel-name" name="name" class="form-control" required />
@@ -51,11 +87,52 @@ function renderLayout(mainElement) {
           <label for="admin-hotel-description" class="form-label">Description</label>
           <input id="admin-hotel-description" name="description" class="form-control" />
         </div>
+        <div class="col-12 col-md-6">
+          <label for="admin-hotel-image" class="form-label">Image</label>
+          <input id="admin-hotel-image" name="image" class="form-control" type="file" accept="image/*" />
+        </div>
+        <div class="col-12 col-md-6 d-flex align-items-end">
+          <small id="admin-hotel-image-hint" class="text-secondary">No image selected.</small>
+        </div>
         <div class="col-12">
-          <button type="submit" class="btn btn-dark btn-sm">Add Hotel</button>
+          <button type="submit" id="admin-hotel-submit" class="btn btn-dark btn-sm">Add Hotel</button>
+          <button type="button" id="admin-hotel-cancel-edit" class="btn btn-outline-secondary btn-sm ms-2 d-none">Cancel edit</button>
         </div>
       </form>
       <div id="admin-hotels-content"><p class="text-secondary mb-0">Loading hotels...</p></div>
+    </section>
+
+    <section>
+      <h2 class="h4 mb-3">Destinations Management</h2>
+      <div id="admin-destinations-alert"></div>
+      <form id="admin-add-destination-form" class="row g-3 mb-4">
+        <input type="hidden" name="destination_id" />
+        <input type="hidden" name="current_image_url" />
+        <div class="col-12 col-md-4">
+          <label for="admin-destination-name" class="form-label">Name</label>
+          <input id="admin-destination-name" name="name" class="form-control" required />
+        </div>
+        <div class="col-12 col-md-4">
+          <label for="admin-destination-country" class="form-label">Location</label>
+          <input id="admin-destination-country" name="country" class="form-control" required />
+        </div>
+        <div class="col-12 col-md-4">
+          <label for="admin-destination-description" class="form-label">Description</label>
+          <input id="admin-destination-description" name="description" class="form-control" />
+        </div>
+        <div class="col-12 col-md-6">
+          <label for="admin-destination-image" class="form-label">Image</label>
+          <input id="admin-destination-image" name="image" class="form-control" type="file" accept="image/*" />
+        </div>
+        <div class="col-12 col-md-6 d-flex align-items-end">
+          <small id="admin-destination-image-hint" class="text-secondary">No image selected.</small>
+        </div>
+        <div class="col-12">
+          <button type="submit" id="admin-destination-submit" class="btn btn-dark btn-sm">Add Destination</button>
+          <button type="button" id="admin-destination-cancel-edit" class="btn btn-outline-secondary btn-sm ms-2 d-none">Cancel edit</button>
+        </div>
+      </form>
+      <div id="admin-destinations-content"><p class="text-secondary mb-0">Loading destinations...</p></div>
     </section>
   `;
 }
@@ -66,13 +143,29 @@ function renderBookings(bookingsContent, bookings) {
     return;
   }
 
+  const statusCounts = bookings.reduce(
+    (accumulator, booking) => {
+      const status = String(booking.status ?? 'unknown');
+      accumulator[status] = (accumulator[status] ?? 0) + 1;
+      return accumulator;
+    },
+    {}
+  );
+
+  const summaryBadges = Object.entries(statusCounts)
+    .map(([status, count]) => {
+      const badgeClass = getStatusBadgeClass(status);
+      return `<span class="badge ${badgeClass}">${escapeHtml(status)}: ${count}</span>`;
+    })
+    .join(' ');
+
   const rows = bookings
     .map((booking) => {
       const profile = Array.isArray(booking.profiles) ? booking.profiles[0] : booking.profiles;
       const userEmail = profile?.email ?? '—';
       const hotelName = booking.hotels?.name ?? '—';
       const status = String(booking.status ?? 'unknown');
-      const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString() : '—';
+      const createdAt = formatDateTime(booking.created_at);
       const badgeClass = getStatusBadgeClass(status);
       const disableAction = status !== 'pending';
       const actionAttr = disableAction ? 'disabled' : '';
@@ -82,9 +175,9 @@ function renderBookings(bookingsContent, bookings) {
           <td>${escapeHtml(userEmail)}</td>
           <td>${escapeHtml(hotelName)}</td>
           <td><span class="badge ${badgeClass}">${escapeHtml(status)}</span></td>
-          <td>${escapeHtml(createdAt)}</td>
+          <td class="text-nowrap">${escapeHtml(createdAt)}</td>
           <td>
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
               <button type="button" class="btn btn-success btn-sm" data-action="approve-booking" data-booking-id="${booking.id}" ${actionAttr}>Approve</button>
               <button type="button" class="btn btn-danger btn-sm" data-action="reject-booking" data-booking-id="${booking.id}" ${actionAttr}>Reject</button>
               <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-booking" data-booking-id="${booking.id}">Delete booking</button>
@@ -96,9 +189,12 @@ function renderBookings(bookingsContent, bookings) {
     .join('');
 
   bookingsContent.innerHTML = `
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      ${summaryBadges}
+    </div>
     <div class="table-responsive">
-      <table class="table table-striped align-middle">
-        <thead>
+      <table class="table table-striped table-hover table-bordered align-middle mb-0">
+        <thead class="table-light">
           <tr>
             <th scope="col">User Email</th>
             <th scope="col">Hotel Name</th>
@@ -129,8 +225,21 @@ function renderHotels(hotelsContent, hotels) {
           <td>${escapeHtml(hotel.name)}</td>
           <td>${escapeHtml(hotel.destination)}</td>
           <td>${escapeHtml(hotel.description ?? '')}</td>
+          <td>${getImageMarkup(hotel.image_url, `${hotel.name} image`)}</td>
           <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" data-action="delete-hotel" data-hotel-id="${hotel.id}">Delete</button>
+            <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                data-action="edit-hotel"
+                data-hotel-id="${hotel.id}"
+                data-hotel-name="${escapeHtml(hotel.name)}"
+                data-hotel-destination="${escapeHtml(hotel.destination)}"
+                data-hotel-description="${escapeHtml(hotel.description ?? '')}"
+                data-hotel-image-url="${escapeHtml(hotel.image_url ?? '')}"
+              >Edit</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-action="delete-hotel" data-hotel-id="${hotel.id}">Delete</button>
+            </div>
           </td>
         </tr>
       `;
@@ -146,6 +255,63 @@ function renderHotels(hotelsContent, hotels) {
             <th scope="col">Name</th>
             <th scope="col">Destination</th>
             <th scope="col">Description</th>
+            <th scope="col">Image</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderDestinations(destinationsContent, destinations) {
+  if (!destinations || destinations.length === 0) {
+    destinationsContent.innerHTML = '<div class="alert alert-info" role="alert">No destinations found.</div>';
+    return;
+  }
+
+  const rows = destinations
+    .map((destination) => {
+      return `
+        <tr>
+          <td>${escapeHtml(destination.id)}</td>
+          <td>${escapeHtml(destination.name)}</td>
+          <td>${escapeHtml(destination.country)}</td>
+          <td>${escapeHtml(destination.description ?? '')}</td>
+          <td>${getImageMarkup(destination.image_url, `${destination.name} image`)}</td>
+          <td>
+            <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                data-action="edit-destination"
+                data-destination-id="${destination.id}"
+                data-destination-name="${escapeHtml(destination.name)}"
+                data-destination-country="${escapeHtml(destination.country)}"
+                data-destination-description="${escapeHtml(destination.description ?? '')}"
+                data-destination-image-url="${escapeHtml(destination.image_url ?? '')}"
+              >Edit</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-action="delete-destination" data-destination-id="${destination.id}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  destinationsContent.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col">Location</th>
+            <th scope="col">Description</th>
+            <th scope="col">Image</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -185,10 +351,76 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bookingsContent = document.getElementById('admin-bookings-content');
   const hotelsAlert = document.getElementById('admin-hotels-alert');
   const hotelsContent = document.getElementById('admin-hotels-content');
+  const destinationsAlert = document.getElementById('admin-destinations-alert');
+  const destinationsContent = document.getElementById('admin-destinations-content');
   const addHotelForm = document.getElementById('admin-add-hotel-form');
+  const addDestinationForm = document.getElementById('admin-add-destination-form');
+  const hotelSubmitButton = document.getElementById('admin-hotel-submit');
+  const destinationSubmitButton = document.getElementById('admin-destination-submit');
+  const hotelCancelEditButton = document.getElementById('admin-hotel-cancel-edit');
+  const destinationCancelEditButton = document.getElementById('admin-destination-cancel-edit');
+  const hotelImageHint = document.getElementById('admin-hotel-image-hint');
+  const destinationImageHint = document.getElementById('admin-destination-image-hint');
 
-  if (!bookingsContent || !hotelsContent || !addHotelForm) {
+  if (
+    !bookingsContent ||
+    !hotelsContent ||
+    !destinationsContent ||
+    !addHotelForm ||
+    !addDestinationForm ||
+    !hotelSubmitButton ||
+    !destinationSubmitButton ||
+    !hotelCancelEditButton ||
+    !destinationCancelEditButton ||
+    !hotelImageHint ||
+    !destinationImageHint
+  ) {
     return;
+  }
+
+  let hotelsCache = [];
+  let destinationsCache = [];
+
+  function resetHotelForm() {
+    addHotelForm.reset();
+    addHotelForm.elements.hotel_id.value = '';
+    addHotelForm.elements.current_image_url.value = '';
+    hotelSubmitButton.textContent = 'Add Hotel';
+    hotelCancelEditButton.classList.add('d-none');
+    hotelImageHint.textContent = 'No image selected.';
+  }
+
+  function setHotelFormEditMode(hotel) {
+    addHotelForm.elements.hotel_id.value = String(hotel.id);
+    addHotelForm.elements.current_image_url.value = hotel.image_url ?? '';
+    addHotelForm.elements.name.value = hotel.name ?? '';
+    addHotelForm.elements.destination.value = hotel.destination ?? '';
+    addHotelForm.elements.description.value = hotel.description ?? '';
+    addHotelForm.elements.image.value = '';
+    hotelSubmitButton.textContent = 'Update Hotel';
+    hotelCancelEditButton.classList.remove('d-none');
+    hotelImageHint.textContent = hotel.image_url ? 'Current image will be kept unless replaced.' : 'No existing image.';
+  }
+
+  function resetDestinationForm() {
+    addDestinationForm.reset();
+    addDestinationForm.elements.destination_id.value = '';
+    addDestinationForm.elements.current_image_url.value = '';
+    destinationSubmitButton.textContent = 'Add Destination';
+    destinationCancelEditButton.classList.add('d-none');
+    destinationImageHint.textContent = 'No image selected.';
+  }
+
+  function setDestinationFormEditMode(destination) {
+    addDestinationForm.elements.destination_id.value = String(destination.id);
+    addDestinationForm.elements.current_image_url.value = destination.image_url ?? '';
+    addDestinationForm.elements.name.value = destination.name ?? '';
+    addDestinationForm.elements.country.value = destination.country ?? '';
+    addDestinationForm.elements.description.value = destination.description ?? '';
+    addDestinationForm.elements.image.value = '';
+    destinationSubmitButton.textContent = 'Update Destination';
+    destinationCancelEditButton.classList.remove('d-none');
+    destinationImageHint.textContent = destination.image_url ? 'Current image will be kept unless replaced.' : 'No existing image.';
   }
 
   async function loadBookings() {
@@ -212,10 +444,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    renderHotels(hotelsContent, data);
+    hotelsCache = Array.isArray(data) ? data : [];
+    renderHotels(hotelsContent, hotelsCache);
   }
 
-  await Promise.all([loadBookings(), loadHotels()]);
+  async function loadDestinations() {
+    destinationsContent.innerHTML = '<p class="text-secondary mb-0">Loading destinations...</p>';
+    const { data, error } = await getDestinations();
+
+    if (error) {
+      destinationsContent.innerHTML = `<div class="alert alert-danger" role="alert">${escapeHtml(error.message || 'Unable to load destinations.')}</div>`;
+      return;
+    }
+
+    destinationsCache = Array.isArray(data) ? data : [];
+    renderDestinations(destinationsContent, destinationsCache);
+  }
+
+  await Promise.all([loadBookings(), loadHotels(), loadDestinations()]);
 
   bookingsContent.addEventListener('click', async (event) => {
     const approveButton = event.target.closest('[data-action="approve-booking"]');
@@ -241,13 +487,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       bookingsAlert.innerHTML = '';
     }
 
-    actionButton.disabled = true;
+    const rowElement = actionButton.closest('tr');
+    const rowActionButtons = rowElement
+      ? Array.from(rowElement.querySelectorAll('button[data-booking-id]'))
+      : [actionButton];
+
+    if (deleteButton) {
+      const isConfirmed = window.confirm('Delete this booking permanently?');
+      if (!isConfirmed) {
+        return;
+      }
+    }
+
+    rowActionButtons.forEach((button) => {
+      button.disabled = true;
+    });
 
     if (deleteButton) {
       const { error } = await deleteBookingById(bookingId);
       if (error) {
         setAlert(bookingsAlert, 'danger', error.message || 'Unable to delete booking.');
-        actionButton.disabled = false;
+        rowActionButtons.forEach((button) => {
+          button.disabled = false;
+        });
         return;
       }
 
@@ -261,7 +523,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { error } = await updateBookingStatusById(bookingId, status);
     if (error) {
       setAlert(bookingsAlert, 'danger', error.message || 'Unable to update booking status.');
-      actionButton.disabled = false;
+      rowActionButtons.forEach((button) => {
+        button.disabled = false;
+      });
       return;
     }
 
@@ -276,34 +540,109 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const formData = new FormData(addHotelForm);
+    const hotelId = parseEntityId(formData.get('hotel_id'));
     const name = String(formData.get('name') ?? '').trim();
     const destination = String(formData.get('destination') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
+    const currentImageUrl = String(formData.get('current_image_url') ?? '').trim();
+    const imageFile = formData.get('image');
 
     if (!name || !destination) {
       setAlert(hotelsAlert, 'danger', 'Name and destination are required.');
       return;
     }
 
-    const { error } = await createHotel({ name, destination, description });
-    if (error) {
-      setAlert(hotelsAlert, 'danger', error.message || 'Unable to add hotel.');
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
       return;
     }
 
-    setAlert(hotelsAlert, 'success', 'Hotel added successfully.');
-    addHotelForm.reset();
+    let imageUrl = currentImageUrl || null;
+    if (imageFile instanceof File && imageFile.size > 0) {
+      const uploadResult = await uploadHotelImage(imageFile);
+      if (uploadResult.error) {
+        setAlert(hotelsAlert, 'danger', uploadResult.error.message || 'Unable to upload hotel image.');
+        return;
+      }
+
+      imageUrl = uploadResult.data?.publicUrl ?? null;
+    }
+
+    const payload = { name, destination, description, image_url: imageUrl };
+
+    const operationResult = hotelId
+      ? await updateHotelById(hotelId, payload)
+      : await createHotel(payload);
+
+    const { error } = operationResult;
+    if (error) {
+      setAlert(hotelsAlert, 'danger', error.message || 'Unable to save hotel.');
+      return;
+    }
+
+    setAlert(hotelsAlert, 'success', hotelId ? 'Hotel updated successfully.' : 'Hotel added successfully.');
+    resetHotelForm();
     await loadHotels();
   });
 
+  addHotelForm.elements.image.addEventListener('change', () => {
+    const selectedFile = addHotelForm.elements.image.files?.[0];
+    if (!selectedFile) {
+      const hasCurrentImage = Boolean(addHotelForm.elements.current_image_url.value);
+      hotelImageHint.textContent = hasCurrentImage ? 'Current image will be kept unless replaced.' : 'No image selected.';
+      return;
+    }
+
+    hotelImageHint.textContent = `Selected: ${selectedFile.name}`;
+  });
+
+  hotelCancelEditButton.addEventListener('click', () => {
+    if (hotelsAlert) {
+      hotelsAlert.innerHTML = '';
+    }
+    resetHotelForm();
+  });
+
   hotelsContent.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-action="edit-hotel"]');
     const deleteButton = event.target.closest('[data-action="delete-hotel"]');
+
+    if (editButton) {
+      const hotelId = parseEntityId(editButton.getAttribute('data-hotel-id'));
+      if (!hotelId) {
+        return;
+      }
+
+      const hotel = hotelsCache.find((item) => item.id === hotelId);
+      if (!hotel) {
+        setAlert(hotelsAlert, 'danger', 'Hotel not found for editing.');
+        return;
+      }
+
+      if (hotelsAlert) {
+        hotelsAlert.innerHTML = '';
+      }
+      setHotelFormEditMode(hotel);
+      addHotelForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
     if (!deleteButton) {
       return;
     }
 
     const hotelId = Number(deleteButton.getAttribute('data-hotel-id'));
     if (!Number.isInteger(hotelId)) {
+      return;
+    }
+
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    const isConfirmed = window.confirm('Delete this hotel?');
+    if (!isConfirmed) {
       return;
     }
 
@@ -317,6 +656,141 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setAlert(hotelsAlert, 'success', 'Hotel deleted successfully.');
+    if (String(addHotelForm.elements.hotel_id.value) === String(hotelId)) {
+      resetHotelForm();
+    }
     await loadHotels();
   });
+
+  addDestinationForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (destinationsAlert) {
+      destinationsAlert.innerHTML = '';
+    }
+
+    const formData = new FormData(addDestinationForm);
+    const destinationId = parseEntityId(formData.get('destination_id'));
+    const name = String(formData.get('name') ?? '').trim();
+    const country = String(formData.get('country') ?? '').trim();
+    const description = String(formData.get('description') ?? '').trim();
+    const currentImageUrl = String(formData.get('current_image_url') ?? '').trim();
+    const imageFile = formData.get('image');
+
+    if (!name || !country) {
+      setAlert(destinationsAlert, 'danger', 'Name and location are required.');
+      return;
+    }
+
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    let imageUrl = currentImageUrl || null;
+    if (imageFile instanceof File && imageFile.size > 0) {
+      const uploadResult = await uploadDestinationImage(imageFile);
+      if (uploadResult.error) {
+        setAlert(destinationsAlert, 'danger', uploadResult.error.message || 'Unable to upload destination image.');
+        return;
+      }
+
+      imageUrl = uploadResult.data?.publicUrl ?? null;
+    }
+
+    const payload = { name, country, description, image_url: imageUrl };
+
+    const operationResult = destinationId
+      ? await updateDestinationById(destinationId, payload)
+      : await createDestination(payload);
+
+    const { error } = operationResult;
+    if (error) {
+      setAlert(destinationsAlert, 'danger', error.message || 'Unable to save destination.');
+      return;
+    }
+
+    setAlert(destinationsAlert, 'success', destinationId ? 'Destination updated successfully.' : 'Destination added successfully.');
+    resetDestinationForm();
+    await loadDestinations();
+  });
+
+  addDestinationForm.elements.image.addEventListener('change', () => {
+    const selectedFile = addDestinationForm.elements.image.files?.[0];
+    if (!selectedFile) {
+      const hasCurrentImage = Boolean(addDestinationForm.elements.current_image_url.value);
+      destinationImageHint.textContent = hasCurrentImage ? 'Current image will be kept unless replaced.' : 'No image selected.';
+      return;
+    }
+
+    destinationImageHint.textContent = `Selected: ${selectedFile.name}`;
+  });
+
+  destinationCancelEditButton.addEventListener('click', () => {
+    if (destinationsAlert) {
+      destinationsAlert.innerHTML = '';
+    }
+    resetDestinationForm();
+  });
+
+  destinationsContent.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-action="edit-destination"]');
+    const deleteButton = event.target.closest('[data-action="delete-destination"]');
+
+    if (editButton) {
+      const destinationId = parseEntityId(editButton.getAttribute('data-destination-id'));
+      if (!destinationId) {
+        return;
+      }
+
+      const destination = destinationsCache.find((item) => item.id === destinationId);
+      if (!destination) {
+        setAlert(destinationsAlert, 'danger', 'Destination not found for editing.');
+        return;
+      }
+
+      if (destinationsAlert) {
+        destinationsAlert.innerHTML = '';
+      }
+      setDestinationFormEditMode(destination);
+      addDestinationForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (!deleteButton) {
+      return;
+    }
+
+    const destinationId = parseEntityId(deleteButton.getAttribute('data-destination-id'));
+    if (!destinationId) {
+      return;
+    }
+
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    const isConfirmed = window.confirm('Delete this destination?');
+    if (!isConfirmed) {
+      return;
+    }
+
+    deleteButton.disabled = true;
+
+    const { error } = await deleteDestinationById(destinationId);
+    if (error) {
+      setAlert(destinationsAlert, 'danger', error.message || 'Unable to delete destination.');
+      deleteButton.disabled = false;
+      return;
+    }
+
+    setAlert(destinationsAlert, 'success', 'Destination deleted successfully.');
+    if (String(addDestinationForm.elements.destination_id.value) === String(destinationId)) {
+      resetDestinationForm();
+    }
+    await loadDestinations();
+  });
+
+  resetHotelForm();
+  resetDestinationForm();
 });

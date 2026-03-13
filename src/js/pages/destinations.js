@@ -17,9 +17,11 @@ function renderDestinations(mainElement, destinations) {
       (destination) => `
         <div class="col-12 col-md-6 col-lg-4">
           <div class="card h-100">
-            <div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 160px;">
-              <span class="text-muted">Image Placeholder</span>
-            </div>
+            ${
+              destination.image_url
+                ? `<img src="${escapeHtml(destination.image_url)}" class="card-img-top" alt="${escapeHtml(destination.name)}" style="height: 160px; object-fit: cover;" />`
+                : `<div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 160px;"><span class="text-muted">Image Placeholder</span></div>`
+            }
             <div class="card-body">
               <h5 class="card-title mb-2">${escapeHtml(destination.name)}</h5>
               <p class="text-secondary mb-2">${escapeHtml(destination.country)}</p>
