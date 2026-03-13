@@ -18,9 +18,11 @@ function renderPreviewCards(items, titleKey, subtitleKey) {
       (item) => `
         <div class="col-12 col-md-6 col-lg-4">
           <div class="card h-100">
-            <div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 140px;">
-              <span class="text-muted">Image Placeholder</span>
-            </div>
+            ${
+              item.image_url
+                ? `<img src="${escapeHtml(item.image_url)}" class="card-img-top" alt="${escapeHtml(item[titleKey])}" style="height: 140px; object-fit: cover;" />`
+                : `<div class="bg-light border-bottom d-flex align-items-center justify-content-center" style="height: 140px;"><span class="text-muted">Image Placeholder</span></div>`
+            }
             <div class="card-body">
               <h5 class="card-title mb-2">${escapeHtml(item[titleKey])}</h5>
               <p class="text-secondary mb-0">${escapeHtml(item[subtitleKey])}</p>
