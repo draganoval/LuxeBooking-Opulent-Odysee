@@ -1,7 +1,11 @@
 import { initHeader } from '../ui/header.js';
 import { initFooter } from '../ui/footer.js';
 import { requireAdmin } from '../auth/guards.js';
-import { supabase } from '../supabaseClient.js';
+import {
+  deleteBookingById,
+  getAllBookingsForAdmin,
+  updateBookingStatusById
+} from '../services/bookingsService.js';
 import { createHotel, deleteHotelById, getHotels } from '../services/hotelsService.js';
 
 function escapeHtml(value) {
@@ -67,8 +71,8 @@ function renderBookings(bookingsContent, bookings) {
       const profile = Array.isArray(booking.profiles) ? booking.profiles[0] : booking.profiles;
       const userEmail = profile?.email ?? '—';
       const hotelName = booking.hotels?.name ?? '—';
-      const dateRange = `${booking.start_date ?? '—'} → ${booking.end_date ?? '—'}`;
       const status = String(booking.status ?? 'unknown');
+      const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString() : '—';
       const badgeClass = getStatusBadgeClass(status);
       const disableAction = status !== 'pending';
       const actionAttr = disableAction ? 'disabled' : '';
@@ -77,13 +81,13 @@ function renderBookings(bookingsContent, bookings) {
         <tr>
           <td>${escapeHtml(userEmail)}</td>
           <td>${escapeHtml(hotelName)}</td>
-          <td>${escapeHtml(dateRange)}</td>
-          <td>${escapeHtml(booking.guests)}</td>
           <td><span class="badge ${badgeClass}">${escapeHtml(status)}</span></td>
+          <td>${escapeHtml(createdAt)}</td>
           <td>
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-success btn-sm" data-action="approve-booking" data-booking-id="${booking.id}" ${actionAttr}>Approve</button>
               <button type="button" class="btn btn-danger btn-sm" data-action="reject-booking" data-booking-id="${booking.id}" ${actionAttr}>Reject</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-booking" data-booking-id="${booking.id}">Delete booking</button>
             </div>
           </td>
         </tr>
@@ -97,10 +101,9 @@ function renderBookings(bookingsContent, bookings) {
         <thead>
           <tr>
             <th scope="col">User Email</th>
-            <th scope="col">Hotel</th>
-            <th scope="col">Dates</th>
-            <th scope="col">Guests</th>
+            <th scope="col">Hotel Name</th>
             <th scope="col">Status</th>
+            <th scope="col">Created At</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -162,46 +165,6 @@ function setAlert(container, type, message) {
   container.innerHTML = `<div class="alert alert-${type} py-2" role="alert">${escapeHtml(message)}</div>`;
 }
 
-async function getAllBookingsForAdmin() {
-  try {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('id,start_date,end_date,guests,status,hotels(name),profiles(email)')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return { data: null, error };
-    }
-
-    return { data, error: null };
-  } catch (error) {
-    return { data: null, error };
-  }
-}
-
-async function updateBookingStatusById(bookingId, status) {
-  try {
-    const { data, error } = await supabase
-      .from('bookings')
-      .update({ status })
-      .eq('id', bookingId)
-      .select('id,status')
-      .maybeSingle();
-
-    if (error) {
-      return { data: null, error };
-    }
-
-    if (!data) {
-      return { data: null, error: new Error('Booking not found.') };
-    }
-
-    return { data, error: null };
-  } catch (error) {
-    return { data: null, error };
-  }
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   const isAuthorized = await requireAdmin();
   if (!isAuthorized) {
@@ -257,7 +220,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   bookingsContent.addEventListener('click', async (event) => {
     const approveButton = event.target.closest('[data-action="approve-booking"]');
     const rejectButton = event.target.closest('[data-action="reject-booking"]');
-    const actionButton = approveButton || rejectButton;
+    const deleteButton = event.target.closest('[data-action="delete-booking"]');
+    const actionButton = approveButton || rejectButton || deleteButton;
 
     if (!actionButton || actionButton.disabled) {
       return;
@@ -268,8 +232,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const status = approveButton ? 'approved' : 'rejected';
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    if (bookingsAlert) {
+      bookingsAlert.innerHTML = '';
+    }
+
     actionButton.disabled = true;
+
+    if (deleteButton) {
+      const { error } = await deleteBookingById(bookingId);
+      if (error) {
+        setAlert(bookingsAlert, 'danger', error.message || 'Unable to delete booking.');
+        actionButton.disabled = false;
+        return;
+      }
+
+      setAlert(bookingsAlert, 'success', 'Booking deleted successfully.');
+      await loadBookings();
+      return;
+    }
+
+    const status = approveButton ? 'approved' : 'rejected';
 
     const { error } = await updateBookingStatusById(bookingId, status);
     if (error) {
