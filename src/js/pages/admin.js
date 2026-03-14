@@ -6,6 +6,7 @@ import {
   getAllBookingsForAdmin,
   updateBookingStatusById
 } from '../services/bookingsService.js';
+import { createAdventure, deleteAdventure, getAdventures, updateAdventure } from '../services/adventuresService.js';
 import { createDestination, deleteDestinationById, getDestinations, updateDestinationById } from '../services/destinationsService.js';
 import { createHotel, deleteHotelById, getHotels, updateHotelById } from '../services/hotelsService.js';
 import { uploadDestinationImage, uploadHotelImage } from '../services/storageService.js';
@@ -59,6 +60,19 @@ function getImageMarkup(url, label) {
   return '<div class="text-secondary small">No image</div>';
 }
 
+function truncatePreview(value, maxLength = 140) {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return 'No content available.';
+  }
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
 function renderLayout(mainElement) {
   mainElement.innerHTML = `
     <h1 class="mb-4">Admin Panel</h1>
@@ -102,7 +116,7 @@ function renderLayout(mainElement) {
       <div id="admin-hotels-content"><p class="text-secondary mb-0">Loading hotels...</p></div>
     </section>
 
-    <section>
+    <section class="mb-5">
       <h2 class="h4 mb-3">Destinations Management</h2>
       <div id="admin-destinations-alert"></div>
       <form id="admin-add-destination-form" class="row g-3 mb-4">
@@ -133,6 +147,35 @@ function renderLayout(mainElement) {
         </div>
       </form>
       <div id="admin-destinations-content"><p class="text-secondary mb-0">Loading destinations...</p></div>
+    </section>
+
+    <section>
+      <h2 class="h4 mb-3">Manage Adventures</h2>
+      <div id="admin-adventures-alert"></div>
+      <form id="admin-add-adventure-form" class="row g-3 mb-4">
+        <input type="hidden" name="adventure_id" />
+        <div class="col-12 col-md-6">
+          <label for="admin-adventure-title" class="form-label">Title</label>
+          <input id="admin-adventure-title" name="title" class="form-control" required />
+        </div>
+        <div class="col-12 col-md-6">
+          <label for="admin-adventure-author" class="form-label">Author Name</label>
+          <input id="admin-adventure-author" name="author_name" class="form-control" />
+        </div>
+        <div class="col-12">
+          <label for="admin-adventure-content" class="form-label">Content</label>
+          <textarea id="admin-adventure-content" name="content" class="form-control" rows="4" required></textarea>
+        </div>
+        <div class="col-12">
+          <label for="admin-adventure-image-url" class="form-label">Image URL (optional)</label>
+          <input id="admin-adventure-image-url" name="image_url" class="form-control" type="url" />
+        </div>
+        <div class="col-12">
+          <button type="submit" id="admin-adventure-submit" class="btn btn-dark btn-sm">Add Adventure</button>
+          <button type="button" id="admin-adventure-cancel-edit" class="btn btn-outline-secondary btn-sm ms-2 d-none">Cancel edit</button>
+        </div>
+      </form>
+      <div id="admin-adventures-content"><p class="text-secondary mb-0">Loading adventures...</p></div>
     </section>
   `;
 }
@@ -323,6 +366,63 @@ function renderDestinations(destinationsContent, destinations) {
   `;
 }
 
+function renderAdventures(adventuresContent, adventures) {
+  if (!adventures || adventures.length === 0) {
+    adventuresContent.innerHTML = '<div class="alert alert-info" role="alert">No adventures found.</div>';
+    return;
+  }
+
+  const rows = adventures
+    .map((adventure) => {
+      return `
+        <tr>
+          <td>${escapeHtml(adventure.title ?? '')}</td>
+          <td>${escapeHtml(adventure.author_name ?? '—')}</td>
+          <td class="text-nowrap">${escapeHtml(formatDateTime(adventure.created_at))}</td>
+          <td>${escapeHtml(truncatePreview(adventure.content))}</td>
+          <td>${getImageMarkup(adventure.image_url, `${adventure.title ?? 'Adventure'} image`)}</td>
+          <td>
+            <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                data-action="edit-adventure"
+                data-adventure-id="${adventure.id}"
+              >Edit</button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                data-action="delete-adventure"
+                data-adventure-id="${adventure.id}"
+              >Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  adventuresContent.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Author</th>
+            <th scope="col">Created At</th>
+            <th scope="col">Preview</th>
+            <th scope="col">Image</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function setAlert(container, type, message) {
   if (!container) {
     return;
@@ -353,12 +453,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hotelsContent = document.getElementById('admin-hotels-content');
   const destinationsAlert = document.getElementById('admin-destinations-alert');
   const destinationsContent = document.getElementById('admin-destinations-content');
+  const adventuresAlert = document.getElementById('admin-adventures-alert');
+  const adventuresContent = document.getElementById('admin-adventures-content');
   const addHotelForm = document.getElementById('admin-add-hotel-form');
   const addDestinationForm = document.getElementById('admin-add-destination-form');
+  const addAdventureForm = document.getElementById('admin-add-adventure-form');
   const hotelSubmitButton = document.getElementById('admin-hotel-submit');
   const destinationSubmitButton = document.getElementById('admin-destination-submit');
+  const adventureSubmitButton = document.getElementById('admin-adventure-submit');
   const hotelCancelEditButton = document.getElementById('admin-hotel-cancel-edit');
   const destinationCancelEditButton = document.getElementById('admin-destination-cancel-edit');
+  const adventureCancelEditButton = document.getElementById('admin-adventure-cancel-edit');
   const hotelImageHint = document.getElementById('admin-hotel-image-hint');
   const destinationImageHint = document.getElementById('admin-destination-image-hint');
 
@@ -366,12 +471,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     !bookingsContent ||
     !hotelsContent ||
     !destinationsContent ||
+    !adventuresContent ||
     !addHotelForm ||
     !addDestinationForm ||
+    !addAdventureForm ||
     !hotelSubmitButton ||
     !destinationSubmitButton ||
+    !adventureSubmitButton ||
     !hotelCancelEditButton ||
     !destinationCancelEditButton ||
+    !adventureCancelEditButton ||
     !hotelImageHint ||
     !destinationImageHint
   ) {
@@ -380,6 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let hotelsCache = [];
   let destinationsCache = [];
+  let adventuresCache = [];
 
   function resetHotelForm() {
     addHotelForm.reset();
@@ -423,6 +533,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     destinationImageHint.textContent = destination.image_url ? 'Current image will be kept unless replaced.' : 'No existing image.';
   }
 
+  function resetAdventureForm() {
+    addAdventureForm.reset();
+    addAdventureForm.elements.adventure_id.value = '';
+    adventureSubmitButton.textContent = 'Add Adventure';
+    adventureCancelEditButton.classList.add('d-none');
+  }
+
+  function setAdventureFormEditMode(adventure) {
+    addAdventureForm.elements.adventure_id.value = String(adventure.id);
+    addAdventureForm.elements.title.value = adventure.title ?? '';
+    addAdventureForm.elements.author_name.value = adventure.author_name ?? '';
+    addAdventureForm.elements.content.value = adventure.content ?? '';
+    addAdventureForm.elements.image_url.value = adventure.image_url ?? '';
+    adventureSubmitButton.textContent = 'Update Adventure';
+    adventureCancelEditButton.classList.remove('d-none');
+  }
+
   async function loadBookings() {
     bookingsContent.innerHTML = '<p class="text-secondary mb-0">Loading bookings...</p>';
     const { data, error } = await getAllBookingsForAdmin();
@@ -461,7 +588,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderDestinations(destinationsContent, destinationsCache);
   }
 
-  await Promise.all([loadBookings(), loadHotels(), loadDestinations()]);
+  async function loadAdventures() {
+    adventuresContent.innerHTML = '<p class="text-secondary mb-0">Loading adventures...</p>';
+    const { data, error } = await getAdventures();
+
+    if (error) {
+      adventuresContent.innerHTML = `<div class="alert alert-danger" role="alert">${escapeHtml(error.message || 'Unable to load adventures.')}</div>`;
+      return;
+    }
+
+    adventuresCache = Array.isArray(data) ? data : [];
+    renderAdventures(adventuresContent, adventuresCache);
+  }
+
+  await Promise.all([loadBookings(), loadHotels(), loadDestinations(), loadAdventures()]);
 
   bookingsContent.addEventListener('click', async (event) => {
     const approveButton = event.target.closest('[data-action="approve-booking"]');
@@ -791,6 +931,118 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadDestinations();
   });
 
+  addAdventureForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (adventuresAlert) {
+      adventuresAlert.innerHTML = '';
+    }
+
+    const formData = new FormData(addAdventureForm);
+    const adventureId = parseEntityId(formData.get('adventure_id'));
+    const title = String(formData.get('title') ?? '').trim();
+    const author_name = String(formData.get('author_name') ?? '').trim();
+    const content = String(formData.get('content') ?? '').trim();
+    const image_url = String(formData.get('image_url') ?? '').trim();
+
+    if (!title || !content) {
+      setAlert(adventuresAlert, 'danger', 'Title and content are required.');
+      return;
+    }
+
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    const payload = {
+      title,
+      author_name,
+      content,
+      image_url
+    };
+
+    const { error } = adventureId
+      ? await updateAdventure(adventureId, payload)
+      : await createAdventure(payload);
+
+    if (error) {
+      setAlert(adventuresAlert, 'danger', error.message || 'Unable to save adventure.');
+      return;
+    }
+
+    setAlert(adventuresAlert, 'success', adventureId ? 'Adventure updated successfully.' : 'Adventure added successfully.');
+    resetAdventureForm();
+    await loadAdventures();
+  });
+
+  adventureCancelEditButton.addEventListener('click', () => {
+    if (adventuresAlert) {
+      adventuresAlert.innerHTML = '';
+    }
+    resetAdventureForm();
+  });
+
+  adventuresContent.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-action="edit-adventure"]');
+    const deleteButton = event.target.closest('[data-action="delete-adventure"]');
+
+    if (editButton) {
+      const adventureId = parseEntityId(editButton.getAttribute('data-adventure-id'));
+      if (!adventureId) {
+        return;
+      }
+
+      const adventure = adventuresCache.find((item) => item.id === adventureId);
+      if (!adventure) {
+        setAlert(adventuresAlert, 'danger', 'Adventure not found for editing.');
+        return;
+      }
+
+      if (adventuresAlert) {
+        adventuresAlert.innerHTML = '';
+      }
+
+      setAdventureFormEditMode(adventure);
+      addAdventureForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (!deleteButton) {
+      return;
+    }
+
+    const adventureId = parseEntityId(deleteButton.getAttribute('data-adventure-id'));
+    if (!adventureId) {
+      return;
+    }
+
+    const isStillAdmin = await requireAdmin();
+    if (!isStillAdmin) {
+      return;
+    }
+
+    const isConfirmed = window.confirm('Delete this adventure?');
+    if (!isConfirmed) {
+      return;
+    }
+
+    deleteButton.disabled = true;
+
+    const { error } = await deleteAdventure(adventureId);
+    if (error) {
+      setAlert(adventuresAlert, 'danger', error.message || 'Unable to delete adventure.');
+      deleteButton.disabled = false;
+      return;
+    }
+
+    setAlert(adventuresAlert, 'success', 'Adventure deleted successfully.');
+    if (String(addAdventureForm.elements.adventure_id.value) === String(adventureId)) {
+      resetAdventureForm();
+    }
+    await loadAdventures();
+  });
+
   resetHotelForm();
   resetDestinationForm();
+  resetAdventureForm();
 });
