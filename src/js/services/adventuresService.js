@@ -4,7 +4,7 @@ export async function getAdventures() {
   try {
     const { data, error } = await supabase
       .from('adventures')
-      .select('id,title,content,author_name,created_at')
+      .select('id,title,content,author_name,created_at,image_url')
       .order('created_at', { ascending: false });
 
     if (error) {

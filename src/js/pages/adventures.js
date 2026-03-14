@@ -30,29 +30,41 @@ function truncateContent(value) {
     return 'No content available.';
   }
 
-  if (content.length <= 260) {
+  const previewLength = 240;
+
+  if (content.length <= previewLength) {
     return content;
   }
 
-  return `${content.slice(0, 260)}…`;
+  return `${content.slice(0, previewLength)}...`;
 }
 
 function renderFeed(mainElement, adventures) {
   const cards = adventures
     .map((adventure) => {
-      const authorMarkup = adventure.author_name
-        ? `<p class="text-secondary mb-1">By ${escapeHtml(adventure.author_name)}</p>`
-        : '';
+      const title = escapeHtml(adventure.title || 'Untitled Adventure');
+      const author = adventure.author_name ? `By ${escapeHtml(adventure.author_name)}` : 'By Unknown author';
+      const createdAt = escapeHtml(formatDate(adventure.created_at));
+      const preview = escapeHtml(truncateContent(adventure.content));
+      const imageMarkup = adventure.image_url
+        ? `<img src="${escapeHtml(adventure.image_url)}" class="img-fluid w-100 h-100" alt="${title}" style="min-height: 220px; max-height: 300px; object-fit: cover;" />`
+        : `<div class="bg-light border d-flex align-items-center justify-content-center h-100" style="min-height: 220px; max-height: 300px;"><span class="text-muted">Adventure Image</span></div>`;
 
       return `
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-1">${escapeHtml(adventure.title || 'Untitled Adventure')}</h5>
-            ${authorMarkup}
-            <p class="small text-muted mb-3">${escapeHtml(formatDate(adventure.created_at))}</p>
-            <p class="card-text mb-0">${escapeHtml(truncateContent(adventure.content))}</p>
-          </div>
+        <article class="card border-0 shadow-sm mb-4 overflow-hidden">
+          <div class="row g-0">
+            <div class="col-12 col-lg-5">
+              ${imageMarkup}
             </div>
+            <div class="col-12 col-lg-7">
+              <div class="card-body p-4 p-lg-5">
+                <h2 class="h4 card-title mb-3">${title}</h2>
+                <p class="small text-muted mb-3">${author} · ${createdAt}</p>
+                <p class="card-text mb-0 lh-lg">${preview}</p>
+              </div>
+            </div>
+          </div>
+        </article>
       `;
     })
     .join('');
