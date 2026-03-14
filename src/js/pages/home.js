@@ -2,6 +2,7 @@ import { initHeader } from '../ui/header.js';
 import { initFooter } from '../ui/footer.js';
 import { getHotels } from '../services/hotelsService.js';
 import { getDestinations } from '../services/destinationsService.js';
+import { getAdventures } from '../services/adventuresService.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const featuredHotelsContainer = document.getElementById('featured-hotels');
   const featuredDestinationsContainer = document.getElementById('featured-destinations');
+  const featuredAdventuresContainer = document.getElementById('featured-adventures');
 
   if (featuredHotelsContainer) {
     featuredHotelsContainer.innerHTML = '<div class="col-12"><p class="text-secondary mb-0">Loading featured hotels...</p></div>';
@@ -68,6 +70,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         featuredDestinations.length > 0
           ? renderPreviewCards(featuredDestinations, 'name', 'country')
           : '<div class="col-12"><div class="alert alert-info" role="alert">No featured destinations available.</div></div>';
+    }
+  }
+
+  if (featuredAdventuresContainer) {
+    featuredAdventuresContainer.innerHTML = '<div class="col-12"><p class="text-secondary mb-0">Loading featured adventures...</p></div>';
+    const { data, error } = await getAdventures();
+
+    if (error) {
+      featuredAdventuresContainer.innerHTML = `<div class="col-12"><div class="alert alert-danger" role="alert">${escapeHtml(error.message || 'Unable to load featured adventures.')}</div></div>`;
+    } else {
+      const featuredAdventures = (data || []).slice(0, 3).map((item) => ({
+        ...item,
+        author_label: item.author_name ? `By ${item.author_name}` : 'By Unknown author'
+      }));
+
+      featuredAdventuresContainer.innerHTML =
+        featuredAdventures.length > 0
+          ? renderPreviewCards(featuredAdventures, 'title', 'author_label')
+          : '<div class="col-12"><div class="alert alert-info" role="alert">No featured adventures available.</div></div>';
     }
   }
 });

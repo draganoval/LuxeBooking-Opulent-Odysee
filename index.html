@@ -14,21 +14,88 @@
   </head>
   <body>
     <div id="app-header"></div>
-    <main class="container py-5">
-      <h1 class="mb-4">Home</h1>
+    <main class="container py-5 home-page">
+      <section class="home-hero text-center text-lg-start mb-5">
+        <div class="row g-4 g-lg-5 align-items-center">
+          <div class="col-12 col-lg-6">
+            <p class="text-uppercase small home-kicker mb-3">Luxe Booking Collection</p>
+            <h1 class="display-5 fw-semibold mb-3">Curated Journeys for the Modern Luxury Traveler</h1>
+            <p class="lead text-secondary mb-4">
+              Discover signature stays, request bespoke bookings, and collect unforgettable stories from around the world.
+            </p>
+            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center justify-content-lg-start">
+              <a href="./hotels.html" class="btn btn-dark px-4">Explore Hotels</a>
+              <a href="./adventures.html" class="btn btn-outline-dark px-4">Read Adventures</a>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="home-hero-visual d-flex align-items-end p-4 p-lg-5">
+              <div>
+                <p class="mb-1 text-uppercase small text-secondary">Featured Escape</p>
+                <h2 class="h4 mb-0">Where refined comfort meets timeless destinations</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h4 mb-0">Your Journey</h2>
+        </div>
+        <div class="row g-4">
+          <div class="col-12 col-md-4">
+            <article class="card h-100 border-0 shadow-sm home-journey-card">
+              <div class="card-body p-4">
+                <div class="home-step-indicator mb-3">1</div>
+                <h3 class="h5 mb-2">Discover</h3>
+                <p class="text-secondary mb-0">Browse hotels and destinations curated for elevated travel experiences.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-12 col-md-4">
+            <article class="card h-100 border-0 shadow-sm home-journey-card">
+              <div class="card-body p-4">
+                <div class="home-step-indicator mb-3">2</div>
+                <h3 class="h5 mb-2">Request</h3>
+                <p class="text-secondary mb-0">Send a booking request with optional attachment and personalized details.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-12 col-md-4">
+            <article class="card h-100 border-0 shadow-sm home-journey-card">
+              <div class="card-body p-4">
+                <div class="home-step-indicator mb-3">3</div>
+                <h3 class="h5 mb-2">Experience</h3>
+                <p class="text-secondary mb-0">Manage your bookings and explore adventures that inspire your next journey.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="h4 mb-0">Featured Hotels</h2>
-          <a href="./hotels.html" class="btn btn-sm btn-outline-primary">View all</a>
+          <a href="./hotels.html" class="btn btn-sm btn-outline-dark">View all</a>
         </div>
         <div id="featured-hotels" class="row g-4"></div>
       </section>
-      <section>
+
+      <section class="mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="h4 mb-0">Featured Destinations</h2>
-          <a href="./destinations.html" class="btn btn-sm btn-outline-primary">View all</a>
+          <a href="./destinations.html" class="btn btn-sm btn-outline-dark">View all</a>
         </div>
         <div id="featured-destinations" class="row g-4"></div>
+      </section>
+
+      <section>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h4 mb-0">Featured Adventures</h2>
+          <a href="./adventures.html" class="btn btn-sm btn-outline-dark">View all</a>
+        </div>
+        <div id="featured-adventures" class="row g-4"></div>
       </section>
     </main>
     <div id="app-footer"></div>
