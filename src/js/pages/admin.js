@@ -9,7 +9,9 @@ import {
 import { createAdventure, deleteAdventure, getAdventures, updateAdventure } from '../services/adventuresService.js';
 import { createDestination, deleteDestinationById, getDestinations, updateDestinationById } from '../services/destinationsService.js';
 import { createHotel, deleteHotelById, getHotels, updateHotelById } from '../services/hotelsService.js';
-import { uploadDestinationImage, uploadHotelImage } from '../services/storageService.js';
+import { uploadAdventureImage, uploadDestinationImage, uploadHotelImage } from '../services/storageService.js';
+
+const ALLOWED_ADVENTURE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -154,6 +156,7 @@ function renderLayout(mainElement) {
       <div id="admin-adventures-alert"></div>
       <form id="admin-add-adventure-form" class="row g-3 mb-4">
         <input type="hidden" name="adventure_id" />
+        <input type="hidden" name="current_image_url" />
         <div class="col-12 col-md-6">
           <label for="admin-adventure-title" class="form-label">Title</label>
           <input id="admin-adventure-title" name="title" class="form-control" required />
@@ -167,8 +170,11 @@ function renderLayout(mainElement) {
           <textarea id="admin-adventure-content" name="content" class="form-control" rows="4" required></textarea>
         </div>
         <div class="col-12">
-          <label for="admin-adventure-image-url" class="form-label">Image URL (optional)</label>
-          <input id="admin-adventure-image-url" name="image_url" class="form-control" type="url" />
+          <label for="admin-adventure-image" class="form-label">Image (optional)</label>
+          <input id="admin-adventure-image" name="image" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+        </div>
+        <div class="col-12">
+          <small id="admin-adventure-image-hint" class="text-secondary">No image selected.</small>
         </div>
         <div class="col-12">
           <button type="submit" id="admin-adventure-submit" class="btn btn-dark btn-sm">Add Adventure</button>
@@ -466,6 +472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const adventureCancelEditButton = document.getElementById('admin-adventure-cancel-edit');
   const hotelImageHint = document.getElementById('admin-hotel-image-hint');
   const destinationImageHint = document.getElementById('admin-destination-image-hint');
+  const adventureImageHint = document.getElementById('admin-adventure-image-hint');
 
   if (
     !bookingsContent ||
@@ -482,7 +489,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     !destinationCancelEditButton ||
     !adventureCancelEditButton ||
     !hotelImageHint ||
-    !destinationImageHint
+    !destinationImageHint ||
+    !adventureImageHint
   ) {
     return;
   }
@@ -536,18 +544,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   function resetAdventureForm() {
     addAdventureForm.reset();
     addAdventureForm.elements.adventure_id.value = '';
+    addAdventureForm.elements.current_image_url.value = '';
     adventureSubmitButton.textContent = 'Add Adventure';
     adventureCancelEditButton.classList.add('d-none');
+    adventureImageHint.textContent = 'No image selected.';
   }
 
   function setAdventureFormEditMode(adventure) {
     addAdventureForm.elements.adventure_id.value = String(adventure.id);
+    addAdventureForm.elements.current_image_url.value = adventure.image_url ?? '';
     addAdventureForm.elements.title.value = adventure.title ?? '';
     addAdventureForm.elements.author_name.value = adventure.author_name ?? '';
     addAdventureForm.elements.content.value = adventure.content ?? '';
-    addAdventureForm.elements.image_url.value = adventure.image_url ?? '';
+    addAdventureForm.elements.image.value = '';
     adventureSubmitButton.textContent = 'Update Adventure';
     adventureCancelEditButton.classList.remove('d-none');
+    adventureImageHint.textContent = adventure.image_url ? 'Current image will be kept unless replaced.' : 'No existing image.';
   }
 
   async function loadBookings() {
@@ -942,7 +954,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const title = String(formData.get('title') ?? '').trim();
     const author_name = String(formData.get('author_name') ?? '').trim();
     const content = String(formData.get('content') ?? '').trim();
-    const image_url = String(formData.get('image_url') ?? '').trim();
+    const currentImageUrl = String(formData.get('current_image_url') ?? '').trim();
+    const imageFile = formData.get('image');
 
     if (!title || !content) {
       setAlert(adventuresAlert, 'danger', 'Title and content are required.');
@@ -952,6 +965,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isStillAdmin = await requireAdmin();
     if (!isStillAdmin) {
       return;
+    }
+
+    let image_url = currentImageUrl || null;
+    if (imageFile instanceof File && imageFile.size > 0) {
+      if (!ALLOWED_ADVENTURE_IMAGE_TYPES.has(imageFile.type)) {
+        setAlert(adventuresAlert, 'danger', 'Only JPG, JPEG, PNG, and WEBP images are allowed.');
+        return;
+      }
+
+      const uploadResult = await uploadAdventureImage(imageFile);
+      if (uploadResult.error) {
+        setAlert(adventuresAlert, 'danger', uploadResult.error.message || 'Unable to upload adventure image.');
+        return;
+      }
+
+      image_url = uploadResult.data?.publicUrl ?? null;
     }
 
     const payload = {
@@ -973,6 +1002,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     setAlert(adventuresAlert, 'success', adventureId ? 'Adventure updated successfully.' : 'Adventure added successfully.');
     resetAdventureForm();
     await loadAdventures();
+  });
+
+  addAdventureForm.elements.image.addEventListener('change', () => {
+    const selectedFile = addAdventureForm.elements.image.files?.[0];
+    if (!selectedFile) {
+      const hasCurrentImage = Boolean(addAdventureForm.elements.current_image_url.value);
+      adventureImageHint.textContent = hasCurrentImage ? 'Current image will be kept unless replaced.' : 'No image selected.';
+      return;
+    }
+
+    if (!ALLOWED_ADVENTURE_IMAGE_TYPES.has(selectedFile.type)) {
+      adventureImageHint.textContent = 'Invalid file type. Use JPG, JPEG, PNG, or WEBP.';
+      return;
+    }
+
+    adventureImageHint.textContent = `Selected: ${selectedFile.name}`;
   });
 
   adventureCancelEditButton.addEventListener('click', () => {

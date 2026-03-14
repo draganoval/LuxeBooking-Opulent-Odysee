@@ -149,3 +149,7 @@ export async function uploadHotelImage(file) {
 export async function uploadDestinationImage(file) {
   return uploadImage(file, 'destinations')
 }
+
+export async function uploadAdventureImage(file) {
+  return uploadImage(file, 'adventures')
+}
